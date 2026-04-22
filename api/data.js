@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 
-const uri = "mongodb+srv://Raja:Raja%402003@cluster0.rhk0ynu.mongodb.net/iot?retryWrites=true&w=majority";
+const uri = "mongodb+srv://Raja:Raja@2003@cluster0.rhk0ynu.mongodb.net/iot?retryWrites=true&w=majority";
 
 export default async function handler(req, res) {
   try {
