@@ -219,7 +219,7 @@
         // 🔥 NEW: Fetch from your Vercel API
         async function getData() {
             try {
-                const res = await fetch("/api/data"); // same domain (Vercel)
+                const res = await fetch("https://smartsense-ruby.vercel.app/api/data"); // same domain (Vercel)
                 const data = await res.json();
 
                 if (data && data.temperature !== undefined) {
