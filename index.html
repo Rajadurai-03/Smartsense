@@ -48,7 +48,6 @@
             margin-bottom: 30px;
         }
 
-        /* 🔹 Clock Styling */
         .header-right {
             display: flex;
             align-items: center;
@@ -117,153 +116,135 @@
 
 <body>
 
-    <div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
 
-        <header>
+    <header>
+        <div>
+            <h1>Welcome Home, <span id="user-name">Raja</span></h1>
+            <p>Climate Control Dashboard</p>
+        </div>
+        <div class="header-right">
+            <div id="digital-clock">00:00:00 AM</div>
+            <div class="profile-small">
+                <span class="profile-initial">R</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
             <div>
-                <h1>Welcome Home, <span id="user-name">Raja</span></h1>
-                <p>Climate Control Dashboard</p>
-            </div>
-            <div class="header-right">
-                <div id="digital-clock">00:00:00 AM</div>
-                <div class="profile-small">
-                    <span class="profile-initial">R</span>
-                </div>
-            </div>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
-                <div class="stat-info">
-                    <h3 id="temp">--°C</h3>
-                    <span>Temperature</span>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="icon-box"><i class="fas fa-droplet"></i></div>
-                <div class="stat-info">
-                    <h3 id="hum">--%</h3>
-                    <span>Humidity</span>
-                </div>
+                <h3 id="temp">--°C</h3>
+                <span>Temperature</span>
             </div>
         </div>
 
-        <div class="chart-container">
-            <h2>Daily Climate Trends</h2>
-            <canvas id="climateChart"></canvas>
+        <div class="stat-card">
+            <div class="icon-box"><i class="fas fa-droplet"></i></div>
+            <div>
+                <h3 id="hum">--%</h3>
+                <span>Humidity</span>
+            </div>
         </div>
-
     </div>
 
-    <script>
-    let chart;
+    <div class="chart-container">
+        <h2>Daily Climate Trends</h2>
+        <canvas id="climateChart"></canvas>
+    </div>
 
-    // 🔹 Clock Function (same)
-    function updateClock() {
-        const now = new Date();
-        let hours = now.getHours();
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
+</div>
 
-        hours = hours % 12;
-        hours = hours ? hours : 12;
+<script>
+let chart;
+const MAX_POINTS = 60;
 
-        const timeString = `${hours}:${minutes}:${seconds} ${ampm}`;
-        document.getElementById('digital-clock').textContent = timeString;
+// Clock
+function updateClock() {
+    const now = new Date();
+    let h = now.getHours();
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    const p = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    document.getElementById('digital-clock').textContent = `${h}:${m}:${s} ${p}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+window.onload = function () {
+
+    const storedUser = JSON.parse(localStorage.getItem('smartHomeUser'));
+    if (storedUser) {
+        document.getElementById('user-name').innerText =
+            storedUser.fullName.split(' ')[0];
     }
 
-    updateClock();
-    setInterval(updateClock, 1000);
+    const ctx = document.getElementById('climateChart').getContext('2d');
 
-    window.onload = function () {
-
-        // 🔹 User name (same)
-        const storedUser = JSON.parse(localStorage.getItem('smartHomeUser'));
-        if (storedUser) {
-            document.getElementById('user-name').innerText =
-                storedUser.fullName.split(' ')[0];
-        }
-
-        // 🔹 Chart init (same)
-        const ctx = document.getElementById('climateChart').getContext('2d');
-
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        data: [],
-                        borderColor: '#ff60ad',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        pointRadius: 0
-                    },
-                    {
-                        data: [],
-                        borderColor: '#4facfe',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        pointRadius: 0
-                    }
-                ]
-            },
-            options: {
-                plugins: { legend: { display: false } }
-            }
-        });
-
-        // 🔥 NEW: Fetch from your Vercel API
-        async function getData() {
-            try {
-                const res = await fetch("https://smartsense-ruby.vercel.app/api/data"); // same domain (Vercel)
-                const data = await res.json();
-
-                if (data && data.temperature !== undefined) {
-
-                    const temp = data.temperature;
-                    const hum = data.humidity;
-
-                    // UI update
-                    document.getElementById("temp").innerText = temp + "°C";
-                    document.getElementById("hum").innerText = hum + "%";
-
-                    // Time label
-                    const now = new Date();
-                    let h = now.getHours();
-                    let m = String(now.getMinutes()).padStart(2, '0');
-                    let p = h >= 12 ? 'PM' : 'AM';
-                    h = h % 12 || 12;
-                    const chartTime = `${h}:${m} ${p}`;
-
-                    // Chart update
-                    chart.data.labels.push(chartTime);
-                    chart.data.datasets[0].data.push(temp);
-                    chart.data.datasets[1].data.push(hum);
-
-                    // limit
-                    if (chart.data.labels.length > 10) {
-                        chart.data.labels.shift();
-                        chart.data.datasets[0].data.shift();
-                        chart.data.datasets[1].data.shift();
-                    }
-
-                    chart.update();
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({ length: MAX_POINTS }, (_, i) => i),
+            datasets: [
+                {
+                    data: Array(MAX_POINTS).fill(null),
+                    borderColor: '#ff60ad',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    pointRadius: 0
+                },
+                {
+                    data: Array(MAX_POINTS).fill(null),
+                    borderColor: '#4facfe',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    pointRadius: 0
                 }
-
-            } catch (err) {
-                console.log("Error fetching:", err);
-            }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    ticks: { display: false }
+                }
+            },
+            plugins: { legend: { display: false } }
         }
+    });
 
-        // 🔁 Poll every 2 seconds
-        setInterval(getData, 2000);
-    };
+    async function getData() {
+        try {
+            const res = await fetch("/api/data");
+            const data = await res.json();
+
+            if (data && data.temperature !== undefined) {
+
+                const temp = data.temperature;
+                const hum = data.humidity;
+
+                document.getElementById("temp").innerText = temp + "°C";
+                document.getElementById("hum").innerText = hum + "%";
+
+                // Sliding update
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+
+                chart.data.datasets[0].data.push(temp);
+                chart.data.datasets[1].data.push(hum);
+
+                chart.update();
+            }
+
+        } catch (err) {
+            console.log("Error:", err);
+        }
+    }
+
+    setInterval(getData, 2000);
+};
 </script>
 
 </body>
-
 </html>
