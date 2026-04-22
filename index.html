@@ -158,87 +158,80 @@
     </div>
 
     <script>
-        // 🔹 Firebase config
-        const firebaseConfig = {
-            apiKey: "AIzaSyCcq8cDhhiLLzHYqoOt6dNGyARPG7OZuJo",
-            databaseURL: "https://smartsenseeee-default-rtdb.firebaseio.com"
-        };
+    let chart;
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    // 🔹 Clock Function (same)
+    function updateClock() {
+        const now = new Date();
+        let hours = now.getHours();
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
 
-        let chart;
+        hours = hours % 12;
+        hours = hours ? hours : 12;
 
-        // 🔹 Function to update Clock
-        function updateClock() {
-            const now = new Date();
-            let hours = now.getHours();
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            
-            hours = hours % 12;
-            hours = hours ? hours : 12; // the hour '0' should be '12'
-            
-            const timeString = `${hours}:${minutes}:${seconds} ${ampm}`;
-            document.getElementById('digital-clock').textContent = timeString;
+        const timeString = `${hours}:${minutes}:${seconds} ${ampm}`;
+        document.getElementById('digital-clock').textContent = timeString;
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    window.onload = function () {
+
+        // 🔹 User name (same)
+        const storedUser = JSON.parse(localStorage.getItem('smartHomeUser'));
+        if (storedUser) {
+            document.getElementById('user-name').innerText =
+                storedUser.fullName.split(' ')[0];
         }
 
-        // Run clock immediately and then every second
-        updateClock();
-        setInterval(updateClock, 1000);
+        // 🔹 Chart init (same)
+        const ctx = document.getElementById('climateChart').getContext('2d');
 
-        window.onload = function () {
-
-            // User name
-            const storedUser = JSON.parse(localStorage.getItem('smartHomeUser'));
-            if (storedUser) {
-                document.getElementById('user-name').innerText =
-                    storedUser.fullName.split(' ')[0];
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        data: [],
+                        borderColor: '#ff60ad',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 0
+                    },
+                    {
+                        data: [],
+                        borderColor: '#4facfe',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                plugins: { legend: { display: false } }
             }
+        });
 
-            // Chart init
-            const ctx = document.getElementById('climateChart').getContext('2d');
+        // 🔥 NEW: Fetch from your Vercel API
+        async function getData() {
+            try {
+                const res = await fetch("/api/data"); // same domain (Vercel)
+                const data = await res.json();
 
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            data: [],
-                            borderColor: '#ff60ad',
-                            borderWidth: 3,
-                            tension: 0.4,
-                            pointRadius: 0
-                        },
-                        {
-                            data: [],
-                            borderColor: '#4facfe',
-                            borderWidth: 3,
-                            tension: 0.4,
-                            pointRadius: 0
-                        }
-                    ]
-                },
-                options: {
-                    plugins: { legend: { display: false } }
-                }
-            });
+                if (data && data.temperature !== undefined) {
 
-            // 🔥 REALTIME DATA
-            db.ref("climate").on("value", (snapshot) => {
-                const data = snapshot.val();
-
-                if (data) {
-                    const temp = data.temp;
+                    const temp = data.temperature;
                     const hum = data.humidity;
 
-                    // Update UI
+                    // UI update
                     document.getElementById("temp").innerText = temp + "°C";
                     document.getElementById("hum").innerText = hum + "%";
 
-                    // Chart Time Label (12h format)
+                    // Time label
                     const now = new Date();
                     let h = now.getHours();
                     let m = String(now.getMinutes()).padStart(2, '0');
@@ -246,6 +239,7 @@
                     h = h % 12 || 12;
                     const chartTime = `${h}:${m} ${p}`;
 
+                    // Chart update
                     chart.data.labels.push(chartTime);
                     chart.data.datasets[0].data.push(temp);
                     chart.data.datasets[1].data.push(hum);
@@ -259,9 +253,16 @@
 
                     chart.update();
                 }
-            });
-        };
-    </script>
+
+            } catch (err) {
+                console.log("Error fetching:", err);
+            }
+        }
+
+        // 🔁 Poll every 2 seconds
+        setInterval(getData, 2000);
+    };
+</script>
 
 </body>
 
