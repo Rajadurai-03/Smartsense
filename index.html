@@ -216,7 +216,7 @@ window.onload = function () {
 
     async function getData() {
         try {
-            const res = await fetch("/api/data");
+            const res = await fetch("https://smartsense-ruby.vercel.app/api/data");
             const data = await res.json();
 
             if (data && data.temperature !== undefined) {
