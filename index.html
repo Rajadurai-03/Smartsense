@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartHome - Climate Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #202436;
+            --card-bg: #2a2f45;
+            --accent-gradient: linear-gradient(90deg, #9b6dff, #ff60ad);
+            --temp-color: #ff60ad;
+            --humid-color: #4facfe;
+            --text-main: #ffffff;
+            --text-dim: #a0a5b8;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #3e425a;
+            color: white;
+            display: flex;
+            justify-content: center;
+        }
+
+        .dashboard-wrapper {
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--bg-dark);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        /* 🔹 Clock Styling */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #digital-clock {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            letter-spacing: 1px;
+        }
+
+        .profile-small {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid #ff60ad;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .profile-initial {
+            font-weight: bold;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .icon-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 24px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard-wrapper">
+
+        <header>
+            <div>
+                <h1>Welcome Home, <span id="user-name">Raja</span></h1>
+                <p>Climate Control Dashboard</p>
+            </div>
+            <div class="header-right">
+                <div id="digital-clock">00:00:00 AM</div>
+                <div class="profile-small">
+                    <span class="profile-initial">R</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon-box"><i class="fas fa-thermometer-half"></i></div>
+                <div class="stat-info">
+                    <h3 id="temp">--°C</h3>
+                    <span>Temperature</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="icon-box"><i class="fas fa-droplet"></i></div>
+                <div class="stat-info">
+                    <h3 id="hum">--%</h3>
+                    <span>Humidity</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2>Daily Climate Trends</h2>
+            <canvas id="climateChart"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // 🔹 Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCcq8cDhhiLLzHYqoOt6dNGyARPG7OZuJo",
+            databaseURL: "https://smartsenseeee-default-rtdb.firebaseio.com"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let chart;
+
+        // 🔹 Function to update Clock
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            
+            hours = hours % 12;
+            hours = hours ? hours : 12; // the hour '0' should be '12'
+            
+            const timeString = `${hours}:${minutes}:${seconds} ${ampm}`;
+            document.getElementById('digital-clock').textContent = timeString;
+        }
+
+        // Run clock immediately and then every second
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        window.onload = function () {
+
+            // User name
+            const storedUser = JSON.parse(localStorage.getItem('smartHomeUser'));
+            if (storedUser) {
+                document.getElementById('user-name').innerText =
+                    storedUser.fullName.split(' ')[0];
+            }
+
+            // Chart init
+            const ctx = document.getElementById('climateChart').getContext('2d');
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            data: [],
+                            borderColor: '#ff60ad',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            data: [],
+                            borderColor: '#4facfe',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // 🔥 REALTIME DATA
+            db.ref("climate").on("value", (snapshot) => {
+                const data = snapshot.val();
+
+                if (data) {
+                    const temp = data.temp;
+                    const hum = data.humidity;
+
+                    // Update UI
+                    document.getElementById("temp").innerText = temp + "°C";
+                    document.getElementById("hum").innerText = hum + "%";
+
+                    // Chart Time Label (12h format)
+                    const now = new Date();
+                    let h = now.getHours();
+                    let m = String(now.getMinutes()).padStart(2, '0');
+                    let p = h >= 12 ? 'PM' : 'AM';
+                    h = h % 12 || 12;
+                    const chartTime = `${h}:${m} ${p}`;
+
+                    chart.data.labels.push(chartTime);
+                    chart.data.datasets[0].data.push(temp);
+                    chart.data.datasets[1].data.push(hum);
+
+                    // limit
+                    if (chart.data.labels.length > 10) {
+                        chart.data.labels.shift();
+                        chart.data.datasets[0].data.shift();
+                        chart.data.datasets[1].data.shift();
+                    }
+
+                    chart.update();
+                }
+            });
+        };
+    </script>
+
+</body>
+
+</html>
