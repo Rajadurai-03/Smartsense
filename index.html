@@ -158,9 +158,12 @@
 
 <script>
 let chart;
-const MAX_POINTS = 60;
+let latestTemp = null;
+let latestHum = null;
 
-// Clock
+const MAX_POINTS = 24;
+
+// 🔁 Clock
 function updateClock() {
     const now = new Date();
     let h = now.getHours();
@@ -168,25 +171,35 @@ function updateClock() {
     const s = String(now.getSeconds()).padStart(2, '0');
     const p = h >= 12 ? 'PM' : 'AM';
     h = h % 12 || 12;
-    document.getElementById('digital-clock').textContent = `${h}:${m}:${s} ${p}`;
+
+    document.getElementById('digital-clock').textContent =
+        `${h}:${m}:${s} ${p}`;
 }
+
 setInterval(updateClock, 1000);
 updateClock();
 
 window.onload = function () {
 
+    // 🔹 user name
     const storedUser = JSON.parse(localStorage.getItem('smartHomeUser'));
     if (storedUser) {
         document.getElementById('user-name').innerText =
             storedUser.fullName.split(' ')[0];
     }
 
+    // 🔹 chart init (24 hour cycle)
     const ctx = document.getElementById('climateChart').getContext('2d');
 
     chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: Array.from({ length: MAX_POINTS }, (_, i) => i),
+            labels: [
+                "12 AM","1 AM","2 AM","3 AM","4 AM","5 AM",
+                "6 AM","7 AM","8 AM","9 AM","10 AM","11 AM",
+                "12 PM","1 PM","2 PM","3 PM","4 PM","5 PM",
+                "6 PM","7 PM","8 PM","9 PM","10 PM","11 PM"
+            ],
             datasets: [
                 {
                     data: Array(MAX_POINTS).fill(null),
@@ -207,13 +220,19 @@ window.onload = function () {
         options: {
             scales: {
                 x: {
-                    ticks: { display: false }
+                    ticks: {
+                        color: "#a0a5b8",
+                        autoSkip: true
+                    }
                 }
             },
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: { display: false }
+            }
         }
     });
 
+    // 🔥 FAST UPDATE (every 2 sec → UI only)
     async function getData() {
         try {
             const res = await fetch("https://smartsense-ruby.vercel.app/api/data");
@@ -221,20 +240,12 @@ window.onload = function () {
 
             if (data && data.temperature !== undefined) {
 
-                const temp = data.temperature;
-                const hum = data.humidity;
+                latestTemp = data.temperature;
+                latestHum = data.humidity;
 
-                document.getElementById("temp").innerText = temp + "°C";
-                document.getElementById("hum").innerText = hum + "%";
-
-                // Sliding update
-                chart.data.datasets[0].data.shift();
-                chart.data.datasets[1].data.shift();
-
-                chart.data.datasets[0].data.push(temp);
-                chart.data.datasets[1].data.push(hum);
-
-                chart.update();
+                // UI update
+                document.getElementById("temp").innerText = latestTemp + "°C";
+                document.getElementById("hum").innerText = latestHum + "%";
             }
 
         } catch (err) {
@@ -242,7 +253,24 @@ window.onload = function () {
         }
     }
 
-    setInterval(getData, 2000);
+    // ⏱ SLOW UPDATE (every 1 hour → chart only)
+    function updateChartHourly() {
+
+        if (latestTemp !== null && latestHum !== null) {
+
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[1].data.shift();
+
+            chart.data.datasets[0].data.push(latestTemp);
+            chart.data.datasets[1].data.push(latestHum);
+
+            chart.update();
+        }
+    }
+
+    // 🔁 Intervals
+    setInterval(getData, 2000);              // UI refresh
+    setInterval(updateChartHourly, 3600000); // Chart hourly update
 };
 </script>
 
